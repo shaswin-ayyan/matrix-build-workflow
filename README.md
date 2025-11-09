@@ -25,4 +25,4 @@ Artifact naming pattern: `build-fa210fa-<os>-node<version>-py<version>-<config>`
 
 ## Contact
 
-Email: devops@example.com
+Email: 23f1000266@ds.study.iitm.ac.in
