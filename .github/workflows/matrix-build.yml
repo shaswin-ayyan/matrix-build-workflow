@@ -2,9 +2,9 @@ name: Multi-Platform Matrix Build with Artifacts
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -12,90 +12,56 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        version: [14, 16, 18]
         include:
-          - os: ubuntu-latest
-            node-version: 18
-            python-version: '3.11'
-            build-config: production
-          - os: ubuntu-latest
-            node-version: 20
-            python-version: '3.12'
-            build-config: staging
-          - os: ubuntu-22.04
-            node-version: 22
-            python-version: '3.13'
-            build-config: development
+          - version: 14
+            platform: "linux-x64"
+          - version: 16  
+            platform: "linux-x64"
+          - version: 18
+            platform: "linux-x64"
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Set up Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: matrix-fa210fa - Build configuration
+    - name: matrix-fa210fa - Build setup
       run: |
-        echo "Building for OS: ${{ matrix.os }}"
-        echo "Node.js version: ${{ matrix.node-version }}"
-        echo "Python version: ${{ matrix.python-version }}"
-        echo "Build config: ${{ matrix.build-config }}"
-    
-    - name: Generate build metadata
-      run: |
-        cat > build-metadata.json << EOF
-        {
-          "build_id": "${{ github.run_id }}",
-          "os": "${{ matrix.os }}",
-          "node_version": "${{ matrix.node-version }}",
-          "python_version": "${{ matrix.python-version }}",
-          "build_config": "${{ matrix.build-config }}",
-          "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-          "commit_sha": "${{ github.sha }}"
-        }
-        EOF
+        echo "Building for Node.js version ${{ matrix.version }}"
+        echo "Platform: ${{ matrix.platform }}"
+        echo "Build ID: ${{ github.run_id }}"
     
     - name: Generate build artifact
       run: |
-        echo "=== Build Output ===" > build-output.txt
-        echo "Platform: ${{ matrix.os }}" >> build-output.txt
-        echo "Node.js: ${{ matrix.node-version }}" >> build-output.txt
-        echo "Python: ${{ matrix.python-version }}" >> build-output.txt
-        echo "Configuration: ${{ matrix.build-config }}" >> build-output.txt
-        echo "Build completed successfully!" >> build-output.txt
-        echo "Timestamp: $(date -u)" >> build-output.txt
+        echo "Build output for Node.js ${{ matrix.version }}" > output-${{ matrix.version }}.txt
+        echo "Platform: ${{ matrix.platform }}" >> output-${{ matrix.version }}.txt
+        echo "Timestamp: $(date)" >> output-${{ matrix.version }}.txt
+        echo "Commit SHA: ${{ github.sha }}" >> output-${{ matrix.version }}.txt
+        echo "Build successful!" >> output-${{ matrix.version }}.txt
         
-        # Simulate different build outputs
-        if [ "${{ matrix.build-config }}" = "production" ]; then
-          echo "Optimization: Level 3" >> build-output.txt
-          echo "Debug symbols: Disabled" >> build-output.txt
-        elif [ "${{ matrix.build-config }}" = "staging" ]; then
-          echo "Optimization: Level 1" >> build-output.txt
-          echo "Debug symbols: Enabled" >> build-output.txt
-        else
-          echo "Optimization: Level 0" >> build-output.txt
-          echo "Debug symbols: Enabled" >> build-output.txt
-          echo "Development features: Enabled" >> build-output.txt
-        fi
+        # Create JSON metadata
+        cat > metadata-${{ matrix.version }}.json << EOF
+        {
+          "node_version": "${{ matrix.version }}",
+          "platform": "${{ matrix.platform }}",
+          "build_id": "${{ github.run_id }}",
+          "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        }
+        EOF
     
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: build-fa210fa-${{ matrix.os }}-node${{ matrix.node-version }}-py${{ matrix.python-version }}-${{ matrix.build-config }}
+        name: build-fa210fa-node${{ matrix.version }}
         path: |
-          build-output.txt
-          build-metadata.json
+          output-${{ matrix.version }}.txt
+          metadata-${{ matrix.version }}.json
         retention-days: 7
     
     - name: Verify artifact content
       run: |
-        echo "Verifying generated files..."
-        [ -s build-output.txt ] || exit 1
-        [ -s build-metadata.json ] || exit 1
-        echo "All artifacts contain content and are ready for upload"
+        echo "Checking generated files..."
+        ls -la
+        [ -s output-${{ matrix.version }}.txt ] || exit 1
+        [ -s metadata-${{ matrix.version }}.json ] || exit 1
+        echo "Files verified successfully!"
